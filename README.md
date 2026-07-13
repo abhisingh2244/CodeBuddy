@@ -71,15 +71,6 @@ Follow these steps to run CodeBuddy locally on your machine.
 
 5. Open [http://localhost:3000](http://localhost:3000) in your browser to view the app.
 
----
-
-## 📸 Screenshots
-
-*(Pro-tip: Add screenshots or a GIF of your working application here!)*
-
-| Editor View | Output View |
-|---|---|
-| ![Editor](https://placeholder.com) | ![Output](https://placeholder.com) |
 
 ---
 
