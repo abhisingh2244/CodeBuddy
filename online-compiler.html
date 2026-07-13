@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wayfare — multi-language code runner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+<style>
+  :root{
+    --ink:#1C1E22;
+    --ink-2:#25282E;
+    --ink-3:#2E323A;
+    --paper:#EDEAE1;
+    --paper-dim:#D9D5C7;
+    --brass:#C98A3E;
+    --brass-bright:#E0A455;
+    --teal:#3F7D74;
+    --rust:#B4483C;
+    --line:#3B3F47;
+    --text-hi:#F2EFE6;
+    --text-lo:#9A9C9F;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--ink);color:var(--text-hi);font-family:'Inter',sans-serif;}
+  body{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+
+  /* ===== Header ===== */
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 22px;border-bottom:1px solid var(--line);
+    background:var(--ink-2);flex-shrink:0;
+  }
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{
+    width:30px;height:30px;border-radius:6px;
+    background:linear-gradient(180deg,var(--brass-bright),var(--brass));
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Space Grotesk',sans-serif;font-weight:600;color:var(--ink);font-size:15px;
+  }
+  .brand-name{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:17px;letter-spacing:0.2px;}
+  .brand-sub{font-size:11px;color:var(--text-lo);margin-top:1px;letter-spacing:0.4px;text-transform:uppercase;}
+
+  .run-cluster{display:flex;align-items:center;gap:10px;}
+  select#stdinLangLabel{display:none;}
+  button{
+    font-family:'Inter',sans-serif;font-weight:500;font-size:13px;
+    border-radius:7px;border:1px solid var(--line);cursor:pointer;
+    padding:9px 16px;background:var(--ink-3);color:var(--text-hi);
+    transition:transform .08s ease, background .15s ease, border-color .15s ease;
+  }
+  button:hover{background:#363B44;border-color:#4A4F58;}
+  button:active{transform:scale(0.97);}
+  button:disabled{opacity:0.5;cursor:not-allowed;}
+  #runBtn{
+    background:linear-gradient(180deg,var(--brass-bright),var(--brass));
+    color:#241503;border:none;font-weight:600;padding:9px 20px;
+    display:flex;align-items:center;gap:7px;
+  }
+  #runBtn:hover{filter:brightness(1.08);}
+  #stopBtn{background:var(--ink-3);color:var(--rust);border-color:#4A2C27;}
+  .spinner{
+    width:13px;height:13px;border-radius:50%;
+    border:2px solid rgba(36,21,3,0.3);border-top-color:#241503;
+    animation:spin .7s linear infinite;display:none;
+  }
+  .spinner.on{display:inline-block;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ===== Body layout ===== */
+  .workspace{flex:1;display:flex;overflow:hidden;min-height:0;}
+
+  /* left rail: language selector as switchboard tabs */
+  .rail{
+    width:150px;flex-shrink:0;background:var(--ink-2);
+    border-right:1px solid var(--line);overflow-y:auto;padding:10px 0;
+  }
+  .rail-label{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-lo);padding:6px 16px 8px;}
+  .lang-tab{
+    display:flex;align-items:center;gap:9px;padding:9px 16px;
+    font-size:13px;color:var(--text-lo);cursor:pointer;
+    border-left:3px solid transparent;transition:all .12s ease;
+  }
+  .lang-tab:hover{color:var(--text-hi);background:var(--ink-3);}
+  .lang-tab.active{
+    color:var(--text-hi);border-left-color:var(--brass);
+    background:var(--ink-3);font-weight:500;
+  }
+  .lang-dot{width:7px;height:7px;border-radius:50%;background:var(--text-lo);flex-shrink:0;}
+  .lang-tab.active .lang-dot{background:var(--brass-bright);}
+  .lang-ver{margin-left:auto;font-size:10px;color:var(--text-lo);font-family:'JetBrains Mono',monospace;}
+
+  /* center: editor */
+  .editor-col{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .editor-tab-bar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:8px 16px;background:var(--ink-2);border-bottom:1px solid var(--line);
+  }
+  .file-chip{
+    font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--text-hi);
+    background:var(--ink-3);padding:5px 12px;border-radius:6px;
+    border:1px solid var(--line);
+  }
+  .editor-tools{display:flex;gap:8px;}
+  .icon-btn{
+    background:transparent;border:1px solid var(--line);padding:6px 10px;font-size:12px;
+  }
+  .editor-wrap{flex:1;min-height:0;position:relative;}
+  .CodeMirror{height:100%;font-family:'JetBrains Mono',monospace;font-size:13.5px;line-height:1.55;}
+
+  /* stdin strip */
+  .stdin-strip{
+    border-top:1px solid var(--line);background:var(--ink-2);
+    display:flex;flex-direction:column;flex-shrink:0;
+  }
+  .stdin-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:8px 16px;cursor:pointer;
+  }
+  .stdin-head-label{font-size:11px;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-lo);}
+  .stdin-caret{color:var(--text-lo);font-size:11px;transition:transform .15s ease;}
+  .stdin-body{display:none;padding:0 16px 12px;}
+  .stdin-body.open{display:block;}
+  textarea#stdinBox{
+    width:100%;height:70px;resize:vertical;background:var(--ink);
+    border:1px solid var(--line);border-radius:6px;color:var(--text-hi);
+    font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:9px 11px;
+  }
+
+  /* right: receipt console */
+  .console-col{
+    width:400px;flex-shrink:0;background:var(--paper);color:#25231E;
+    display:flex;flex-direction:column;border-left:1px solid var(--line);
+    position:relative;
+  }
+  .console-col::before{
+    content:"";position:absolute;top:0;left:0;right:0;height:6px;
+    background:radial-gradient(circle,var(--ink) 3px,transparent 3.5px) 0 0/16px 12px repeat-x;
+  }
+  .console-head{
+    padding:16px 20px 10px;display:flex;align-items:center;justify-content:space-between;
+  }
+  .console-title{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13.5px;letter-spacing:0.3px;}
+  .status-pill{
+    font-size:10.5px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;
+    padding:4px 10px;border-radius:20px;color:var(--paper);
+  }
+  .status-idle{background:#8A8677;}
+  .status-running{background:var(--brass);}
+  .status-success{background:var(--teal);}
+  .status-error{background:var(--rust);}
+
+  .console-meta{
+    padding:0 20px 10px;font-size:11px;color:#6E6B5E;
+    font-family:'JetBrains Mono',monospace;display:flex;gap:14px;
+  }
+  .console-body{
+    flex:1;overflow-y:auto;padding:4px 20px 20px;
+    font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.65;
+    white-space:pre-wrap;word-break:break-word;
+  }
+  .console-body .placeholder{color:#9A9684;font-style:italic;}
+  .out-line{margin:0;}
+  .out-stderr{color:var(--rust);}
+  .out-label{
+    display:block;margin:12px 0 4px;font-size:10px;letter-spacing:1px;
+    text-transform:uppercase;color:#6E6B5E;border-top:1px dashed #C4C0AF;padding-top:8px;
+  }
+  .out-label:first-child{border-top:none;margin-top:0;padding-top:0;}
+
+  ::-webkit-scrollbar{width:9px;height:9px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:#4A4F58;border-radius:5px;}
+  .console-col ::-webkit-scrollbar-thumb{background:#C4C0AF;}
+
+  @media (max-width:860px){
+    .console-col{width:320px;}
+    .rail{width:120px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">CB</div>
+    <div>
+      <div class="brand-name">CodeBuddy</div>
+      <div class="brand-sub">Run code, any language</div>
+    </div>
+  </div>
+  <div class="run-cluster">
+    <button id="stopBtn" disabled>Stop</button>
+    <button id="runBtn"><span class="spinner" id="spinner"></span><span id="runLabel">Run ▸</span></button>
+  </div>
+</header>
+
+<div class="workspace">
+  <div class="rail" id="langRail">
+    <div class="rail-label">Language</div>
+  </div>
+
+  <div class="editor-col">
+    <div class="editor-tab-bar">
+      <div class="file-chip" id="fileChip">main.js</div>
+      <div class="editor-tools">
+        <button class="icon-btn" id="resetBtn" title="Reset to starter snippet">Reset</button>
+      </div>
+    </div>
+    <div class="editor-wrap">
+      <textarea id="codeArea"></textarea>
+    </div>
+    <div class="stdin-strip">
+      <div class="stdin-head" id="stdinHead">
+        <span class="stdin-head-label">Stdin input</span>
+        <span class="stdin-caret" id="stdinCaret">▾</span>
+      </div>
+      <div class="stdin-body" id="stdinBody">
+        <textarea id="stdinBox" placeholder="Anything typed here is piped to the program's stdin..."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="console-col">
+    <div class="console-head">
+      <div class="console-title">Output</div>
+      <div class="status-pill status-idle" id="statusPill">Idle</div>
+    </div>
+    <div class="console-meta" id="consoleMeta"></div>
+    <div class="console-body" id="consoleBody">
+      <div class="placeholder">Nothing has run yet. Pick a language on the left, write some code, and hit Run.</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/php/php.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/ruby/ruby.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/mode/simple.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/shell/shell.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/go/go.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/rust/rust.min.js"></script>
+
+<script>
+const LANGUAGES = [
+  { id:'javascript', judgeId:63, judgeVer:'Node 12',  label:'JavaScript', file:'main.js',   mode:'javascript',
+    starter: "console.log('Hello from JavaScript');\n\nconst nums = [1,2,3,4,5];\nconsole.log('Sum:', nums.reduce((a,b)=>a+b,0));" },
+  { id:'typescript', judgeId:74, judgeVer:'TS 3.7',   label:'TypeScript', file:'main.ts',   mode:'javascript',
+    starter: "const greet = (name: string): string => `Hello, ${name}!`;\nconsole.log(greet('TypeScript'));" },
+  { id:'python',     judgeId:71, judgeVer:'Py 3.8',   label:'Python',     file:'main.py',   mode:'python',
+    starter: "def fib(n):\n    a, b = 0, 1\n    for _ in range(n):\n        a, b = b, a + b\n    return a\n\nprint('Hello from Python')\nprint('fib(10) =', fib(10))" },
+  { id:'c',          judgeId:50, judgeVer:'GCC 9.2',  label:'C',          file:'main.c',    mode:'text/x-csrc',
+    starter: "#include <stdio.h>\n\nint main() {\n    printf(\"Hello from C\\n\");\n    return 0;\n}" },
+  { id:'cpp',        judgeId:54, judgeVer:'GCC 9.2',  label:'C++',        file:'main.cpp',  mode:'text/x-c++src',
+    starter: "#include <iostream>\nusing namespace std;\n\nint main() {\n    cout << \"Hello from C++\" << endl;\n    return 0;\n}" },
+  { id:'java',       judgeId:62, judgeVer:'JDK 13',   label:'Java',       file:'Main.java', mode:'text/x-java',
+    starter: "public class Main {\n    public static void main(String[] args) {\n        System.out.println(\"Hello from Java\");\n    }\n}" },
+  { id:'csharp',     judgeId:51, judgeVer:'Mono 6.6', label:'C#',         file:'main.cs',   mode:'text/x-csharp',
+    starter: "using System;\n\nclass Program {\n    static void Main() {\n        Console.WriteLine(\"Hello from C#\");\n    }\n}" },
+  { id:'go',         judgeId:60, judgeVer:'Go 1.13',  label:'Go',         file:'main.go',   mode:'go',
+    starter: "package main\n\nimport \"fmt\"\n\nfunc main() {\n    fmt.Println(\"Hello from Go\")\n}" },
+  { id:'rust',       judgeId:73, judgeVer:'Rust 1.40',label:'Rust',       file:'main.rs',   mode:'rust',
+    starter: "fn main() {\n    println!(\"Hello from Rust\");\n}" },
+  { id:'ruby',       judgeId:72, judgeVer:'Ruby 2.7', label:'Ruby',       file:'main.rb',   mode:'ruby',
+    starter: "puts 'Hello from Ruby'\n\n(1..5).each { |i| puts \"Line #{i}\" }" },
+  { id:'php',        judgeId:68, judgeVer:'PHP 7.4',  label:'PHP',        file:'main.php',  mode:'php',
+    starter: "<?php\necho \"Hello from PHP\\n\";\n" },
+  { id:'bash',       judgeId:46, judgeVer:'Bash 5.0', label:'Bash',       file:'main.sh',   mode:'shell',
+    starter: "#!/bin/bash\necho \"Hello from Bash\"\nfor i in 1 2 3; do\n  echo \"line $i\"\ndone" },
+];
+
+const JUDGE0_BASE = 'https://ce.judge0.com';
+
+function b64encode(str){ return btoa(unescape(encodeURIComponent(str || ''))); }
+function b64decode(bytes){
+  if(!bytes) return '';
+  const escaped = escape(atob(bytes));
+  try{ return decodeURIComponent(escaped); }catch{ return unescape(escaped); }
+}
+let currentLang = LANGUAGES[0];
+let cm;
+let ws = null;
+let activeJobToken = 0;
+
+const rail = document.getElementById('langRail');
+const fileChip = document.getElementById('fileChip');
+const runBtn = document.getElementById('runBtn');
+const stopBtn = document.getElementById('stopBtn');
+const spinner = document.getElementById('spinner');
+const runLabel = document.getElementById('runLabel');
+const statusPill = document.getElementById('statusPill');
+const consoleBody = document.getElementById('consoleBody');
+const consoleMeta = document.getElementById('consoleMeta');
+const stdinHead = document.getElementById('stdinHead');
+const stdinBody = document.getElementById('stdinBody');
+const stdinCaret = document.getElementById('stdinCaret');
+const stdinBox = document.getElementById('stdinBox');
+const resetBtn = document.getElementById('resetBtn');
+
+function buildRail(){
+  LANGUAGES.forEach(l=>{
+    const tab = document.createElement('div');
+    tab.className = 'lang-tab' + (l.id===currentLang.id ? ' active' : '');
+    tab.dataset.id = l.id;
+    tab.innerHTML = `<span class="lang-dot"></span><span>${l.label}</span><span class="lang-ver" data-ver="${l.id}">${l.judgeVer}</span>`;
+    tab.addEventListener('click', ()=> selectLanguage(l.id));
+    rail.appendChild(tab);
+  });
+}
+
+function selectLanguage(id){
+  const lang = LANGUAGES.find(l=>l.id===id);
+  if(!lang) return;
+  currentLang = lang;
+  document.querySelectorAll('.lang-tab').forEach(t=>t.classList.toggle('active', t.dataset.id===id));
+  fileChip.textContent = lang.file;
+  cm.setOption('mode', lang.mode);
+  cm.setValue(lang.starter);
+}
+
+resetBtn.addEventListener('click', ()=>{
+  cm.setValue(currentLang.starter);
+});
+
+stdinHead.addEventListener('click', ()=>{
+  const open = stdinBody.classList.toggle('open');
+  stdinCaret.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+});
+
+function initEditor(){
+  cm = CodeMirror.fromTextArea(document.getElementById('codeArea'), {
+    mode: currentLang.mode,
+    theme: 'dracula',
+    lineNumbers: true,
+    indentUnit: 4,
+    tabSize: 4,
+    autofocus: true,
+    viewportMargin: Infinity,
+  });
+  cm.setValue(currentLang.starter);
+}
+
+function setStatus(kind, label){
+  statusPill.className = 'status-pill status-' + kind;
+  statusPill.textContent = label;
+}
+
+function setRunning(isRunning){
+  runBtn.disabled = isRunning;
+  stopBtn.disabled = !isRunning;
+  spinner.classList.toggle('on', isRunning);
+  runLabel.textContent = isRunning ? 'Running…' : 'Run ▸';
+}
+
+function appendOutput(label, text, isErr){
+  const l = document.createElement('span');
+  l.className = 'out-label';
+  l.textContent = label;
+  const p = document.createElement('pre');
+  p.className = 'out-line' + (isErr ? ' out-stderr' : '');
+  p.textContent = text && text.length ? text : '(empty)';
+  consoleBody.appendChild(l);
+  consoleBody.appendChild(p);
+}
+
+const JUDGE0_STATUS = {
+  1:'In queue', 2:'Processing', 3:'Accepted', 4:'Wrong answer',
+  5:'Time limit exceeded', 6:'Compilation error', 7:'Runtime error (SIGSEGV)',
+  8:'Runtime error (SIGXFSZ)', 9:'Runtime error (SIGFPE)', 10:'Runtime error (SIGABRT)',
+  11:'Runtime error (NZEC)', 12:'Runtime error', 13:'Internal error', 14:'Exec format error',
+};
+
+async function pollSubmission(token, jobToken){
+  const url = `${JUDGE0_BASE}/submissions/${token}?base64_encoded=true&fields=stdout,stderr,compile_output,message,status_id,time,memory`;
+  for(let attempt=0; attempt<25; attempt++){
+    if(jobToken !== activeJobToken) return null;
+    const res = await fetch(url);
+    if(!res.ok){
+      const errText = await res.text().catch(()=> '');
+      throw new Error('Poll failed (HTTP ' + res.status + '). ' + errText.slice(0,200));
+    }
+    const data = await res.json();
+    if(data.status_id && data.status_id > 2) return data;
+    await new Promise(r=>setTimeout(r, 900));
+  }
+  throw new Error('Timed out waiting for a result');
+}
+
+async function runCode(){
+  const jobToken = ++activeJobToken;
+  consoleBody.innerHTML = '';
+  consoleMeta.textContent = '';
+  setStatus('running','Running');
+  setRunning(true);
+
+  const started = performance.now();
+  try{
+    const createRes = await fetch(`${JUDGE0_BASE}/submissions?base64_encoded=true&wait=false`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        language_id: currentLang.judgeId,
+        source_code: b64encode(cm.getValue()),
+        stdin: b64encode(stdinBox.value),
+        cpu_time_limit: 8,
+      })
+    });
+    if(jobToken !== activeJobToken) return;
+    if(!createRes.ok){
+      const errText = await createRes.text().catch(()=> '');
+      throw new Error('Could not submit (HTTP ' + createRes.status + '). ' + errText.slice(0,200));
+    }
+    const created = await createRes.json();
+    if(!created.token) throw new Error('No submission token returned by the execution service.');
+
+    const data = await pollSubmission(created.token, jobToken);
+    if(data === null) return;
+
+    data.stdout = b64decode(data.stdout);
+    data.stderr = b64decode(data.stderr);
+    data.compile_output = b64decode(data.compile_output);
+    data.message = b64decode(data.message);
+
+    const elapsed = ((performance.now() - started)/1000).toFixed(2);
+    consoleMeta.textContent = `${currentLang.label} · ${currentLang.judgeVer} · ${elapsed}s`;
+
+    const statusId = data.status_id || 0;
+    const statusDesc = JUDGE0_STATUS[statusId] || 'Unknown';
+
+    if(statusId === 6){
+      appendOutput('Build errors', data.compile_output || data.message || '', true);
+      setStatus('error','Build failed');
+    } else {
+      if(data.compile_output){
+        appendOutput('Build', data.compile_output, false);
+      }
+      appendOutput('Run — stdout', data.stdout || '', false);
+      if(data.stderr){
+        appendOutput('Run — stderr', data.stderr, true);
+      }
+      if(data.message && !data.stdout && !data.stderr){
+        appendOutput('Message', data.message, statusId !== 3);
+      }
+      if(statusId === 3){
+        setStatus('success','Success');
+      } else if(statusId === 5){
+        setStatus('error','Timed out');
+      } else {
+        setStatus('error', statusDesc || 'Failed');
+      }
+    }
+  }catch(e){
+    if(jobToken !== activeJobToken) return;
+    setStatus('error','Failed');
+    appendOutput('Error', e.message || 'Something went wrong reaching the execution service.', true);
+  }finally{
+    if(jobToken === activeJobToken) setRunning(false);
+  }
+}
+
+function stopCode(){
+  activeJobToken++;
+  setRunning(false);
+  setStatus('idle','Stopped');
+  appendOutput('Stopped', 'Execution cancelled locally (the remote job may finish shortly after).', false);
+}
+
+runBtn.addEventListener('click', runCode);
+stopBtn.addEventListener('click', stopCode);
+
+document.addEventListener('keydown', (e)=>{
+  if((e.ctrlKey || e.metaKey) && e.key === 'Enter'){
+    e.preventDefault();
+    if(!runBtn.disabled) runCode();
+  }
+});
+
+buildRail();
+initEditor();
+</script>
+
+</body>
+</html>
