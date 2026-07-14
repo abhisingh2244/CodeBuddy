@@ -72,25 +72,15 @@
   /* ===== Body layout ===== */
   .workspace{flex:1;display:flex;overflow:hidden;min-height:0;}
 
-  /* left rail: language selector as switchboard tabs */
-  .rail{
-    width:150px;flex-shrink:0;background:var(--ink-2);
-    border-right:1px solid var(--line);overflow-y:auto;padding:10px 0;
+  /* language dropdown + editor toolbar */
+  .tab-bar-left{display:flex;align-items:center;gap:10px;}
+  .lang-select{
+    font-family:'Inter',sans-serif;font-weight:500;font-size:13px;
+    background:var(--ink-3);color:var(--text-hi);border:1px solid var(--line);
+    border-radius:7px;padding:7px 10px;cursor:pointer;
   }
-  .rail-label{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-lo);padding:6px 16px 8px;}
-  .lang-tab{
-    display:flex;align-items:center;gap:9px;padding:9px 16px;
-    font-size:13px;color:var(--text-lo);cursor:pointer;
-    border-left:3px solid transparent;transition:all .12s ease;
-  }
-  .lang-tab:hover{color:var(--text-hi);background:var(--ink-3);}
-  .lang-tab.active{
-    color:var(--text-hi);border-left-color:var(--brass);
-    background:var(--ink-3);font-weight:500;
-  }
-  .lang-dot{width:7px;height:7px;border-radius:50%;background:var(--text-lo);flex-shrink:0;}
-  .lang-tab.active .lang-dot{background:var(--brass-bright);}
-  .lang-ver{margin-left:auto;font-size:10px;color:var(--text-lo);font-family:'JetBrains Mono',monospace;}
+  .lang-select:hover{border-color:#4A4F58;}
+  .lang-select:focus{outline:none;border-color:var(--brass);}
 
   /* center: editor */
   .editor-col{flex:1;display:flex;flex-direction:column;min-width:0;}
@@ -177,7 +167,6 @@
 
   @media (max-width:860px){
     .console-col{width:320px;}
-    .rail{width:120px;}
   }
 </style>
 </head>
@@ -185,9 +174,9 @@
 
 <header>
   <div class="brand">
-    <div class="brand-mark">CB</div>
+    <div class="brand-mark">W</div>
     <div>
-      <div class="brand-name">CodeBuddy</div>
+      <div class="brand-name">Wayfare</div>
       <div class="brand-sub">Run code, any language</div>
     </div>
   </div>
@@ -198,14 +187,16 @@
 </header>
 
 <div class="workspace">
-  <div class="rail" id="langRail">
-    <div class="rail-label">Language</div>
-  </div>
-
   <div class="editor-col">
     <div class="editor-tab-bar">
-      <div class="file-chip" id="fileChip">main.js</div>
+      <div class="tab-bar-left">
+        <select id="langSelect" class="lang-select"></select>
+        <div class="file-chip" id="fileChip">main.js</div>
+      </div>
       <div class="editor-tools">
+        <input type="file" id="uploadInput" accept=".js,.ts,.py,.c,.cpp,.cc,.h,.hpp,.java,.cs,.go,.rs,.rb,.php,.sh,.txt" style="display:none;" />
+        <button class="icon-btn" id="uploadBtn" title="Upload a source file">Upload</button>
+        <button class="icon-btn" id="downloadBtn" title="Download current code">Download</button>
         <button class="icon-btn" id="resetBtn" title="Reset to starter snippet">Reset</button>
       </div>
     </div>
@@ -230,7 +221,7 @@
     </div>
     <div class="console-meta" id="consoleMeta"></div>
     <div class="console-body" id="consoleBody">
-      <div class="placeholder">Nothing has run yet. Pick a language on the left, write some code, and hit Run.</div>
+      <div class="placeholder">Nothing has run yet. Pick a language above, write some code, and hit Run.</div>
     </div>
   </div>
 </div>
@@ -287,7 +278,7 @@ let cm;
 let ws = null;
 let activeJobToken = 0;
 
-const rail = document.getElementById('langRail');
+const langSelect = document.getElementById('langSelect');
 const fileChip = document.getElementById('fileChip');
 const runBtn = document.getElementById('runBtn');
 const stopBtn = document.getElementById('stopBtn');
@@ -301,23 +292,26 @@ const stdinBody = document.getElementById('stdinBody');
 const stdinCaret = document.getElementById('stdinCaret');
 const stdinBox = document.getElementById('stdinBox');
 const resetBtn = document.getElementById('resetBtn');
+const uploadBtn = document.getElementById('uploadBtn');
+const uploadInput = document.getElementById('uploadInput');
+const downloadBtn = document.getElementById('downloadBtn');
 
-function buildRail(){
+function buildLangDropdown(){
   LANGUAGES.forEach(l=>{
-    const tab = document.createElement('div');
-    tab.className = 'lang-tab' + (l.id===currentLang.id ? ' active' : '');
-    tab.dataset.id = l.id;
-    tab.innerHTML = `<span class="lang-dot"></span><span>${l.label}</span><span class="lang-ver" data-ver="${l.id}">${l.judgeVer}</span>`;
-    tab.addEventListener('click', ()=> selectLanguage(l.id));
-    rail.appendChild(tab);
+    const opt = document.createElement('option');
+    opt.value = l.id;
+    opt.textContent = `${l.label} (${l.judgeVer})`;
+    langSelect.appendChild(opt);
   });
+  langSelect.value = currentLang.id;
+  langSelect.addEventListener('change', ()=> selectLanguage(langSelect.value));
 }
 
 function selectLanguage(id){
   const lang = LANGUAGES.find(l=>l.id===id);
   if(!lang) return;
   currentLang = lang;
-  document.querySelectorAll('.lang-tab').forEach(t=>t.classList.toggle('active', t.dataset.id===id));
+  langSelect.value = lang.id;
   fileChip.textContent = lang.file;
   cm.setOption('mode', lang.mode);
   cm.setValue(lang.starter);
@@ -325,6 +319,52 @@ function selectLanguage(id){
 
 resetBtn.addEventListener('click', ()=>{
   cm.setValue(currentLang.starter);
+});
+
+downloadBtn.addEventListener('click', ()=>{
+  const blob = new Blob([cm.getValue()], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = currentLang.file;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+const EXT_TO_LANG = {
+  js:'javascript', mjs:'javascript', ts:'typescript', py:'python',
+  c:'c', h:'c', cpp:'cpp', cc:'cpp', cxx:'cpp', hpp:'cpp',
+  java:'java', cs:'csharp', go:'go', rs:'rust', rb:'ruby',
+  php:'php', sh:'bash', bash:'bash',
+};
+
+uploadBtn.addEventListener('click', ()=> uploadInput.click());
+
+uploadInput.addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    const ext = file.name.split('.').pop().toLowerCase();
+    const matchedId = EXT_TO_LANG[ext];
+    if(matchedId && matchedId !== currentLang.id){
+      const lang = LANGUAGES.find(l=>l.id===matchedId);
+      if(lang){
+        currentLang = lang;
+        langSelect.value = lang.id;
+        cm.setOption('mode', lang.mode);
+      }
+    }
+    fileChip.textContent = file.name;
+    cm.setValue(ev.target.result);
+  };
+  reader.onerror = ()=>{
+    appendOutput('Error', 'Could not read that file.', true);
+  };
+  reader.readAsText(file);
+  uploadInput.value = '';
 });
 
 stdinHead.addEventListener('click', ()=>{
@@ -480,7 +520,7 @@ document.addEventListener('keydown', (e)=>{
   }
 });
 
-buildRail();
+buildLangDropdown();
 initEditor();
 </script>
 
