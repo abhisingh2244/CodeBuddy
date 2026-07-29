@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CodeBuddy — multi-language code runner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">C</div>
+    <div>
+      <div class="brand-name">CodeBuddy</div>
+      <div class="brand-sub">Run code, any language</div>
+    </div>
+  </div>
+  <div class="run-cluster">
+    <button id="stopBtn" disabled>Stop</button>
+    <button id="runBtn"><span class="spinner" id="spinner"></span><span id="runLabel">Run ▸</span></button>
+  </div>
+</header>
+
+<div class="workspace">
+  <div class="editor-col">
+    <div class="editor-tab-bar">
+      <div class="tab-bar-left">
+        <select id="langSelect" class="lang-select"></select>
+        <div class="file-chip" id="fileChip">main.js</div>
+      </div>
+      <div class="editor-tools">
+        <input type="file" id="uploadInput" accept=".js,.ts,.py,.c,.cpp,.cc,.h,.hpp,.java,.cs,.go,.rs,.rb,.php,.sh,.txt" style="display:none;" />
+        <button class="icon-btn" id="uploadBtn" title="Upload a source file">Upload</button>
+        <button class="icon-btn" id="downloadBtn" title="Download current code">Download</button>
+        <button class="icon-btn" id="resetBtn" title="Reset to starter snippet">Reset</button>
+      </div>
+    </div>
+    <div class="editor-wrap">
+      <textarea id="codeArea"></textarea>
+    </div>
+    <div class="stdin-strip">
+      <div class="stdin-head" id="stdinHead">
+        <span class="stdin-head-label">Stdin input</span>
+        <span class="stdin-caret" id="stdinCaret">▾</span>
+      </div>
+      <div class="stdin-body" id="stdinBody">
+        <textarea id="stdinBox" placeholder="Anything typed here is piped to the program's stdin..."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="console-col">
+    <div class="console-head">
+      <div class="console-title">Output</div>
+      <div class="status-pill status-idle" id="statusPill">Idle</div>
+    </div>
+    <div class="console-meta" id="consoleMeta"></div>
+    <div class="console-body" id="consoleBody">
+      <div class="placeholder">Nothing has run yet. Pick a language above, write some code, and hit Run.</div>
+    </div>
+
+    <div class="history-panel">
+      <div class="history-title">
+        <span>Recent runs</span>
+        <span id="statsSummary"></span>
+      </div>
+      <div id="historyList"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/php/php.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/ruby/ruby.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/mode/simple.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/shell/shell.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/go/go.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/rust/rust.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
