@@ -1,3 +1,5 @@
+## CodeBuddy Deployed At-
+https://codebuddy-lln6.onrender.com/
 # CodeBuddy — Multi-Language Online Code Runner
 
 A full-stack code runner: write code in 12 languages in the browser,
@@ -99,3 +101,5 @@ through our own backend adds:
 - Persistent run history and stats, which the direct-from-browser
   version had no way to have at all (nothing survives a page refresh
   without a backend to store it)
+## UI
+<img width="1921" height="866" alt="image" src="https://github.com/user-attachments/assets/1d7e2fb4-c345-4162-9f40-eb70847872fc" />
