@@ -46,7 +46,7 @@ router.post('/execute', executeLimiter, async (req, res) => {
       source,
       stdin: stdin || '',
     });
-    pending.set(token, { language, source, startedAt: Date.now() });
+    pending.set(token, { sessionId: req.sessionId, language, source, startedAt: Date.now() });
     res.json({ token });
   } catch (err) {
     res.status(502).json({ error: err.message });
@@ -65,7 +65,7 @@ router.get('/execute/:token', async (req, res) => {
         let status = 'error';
         if (result.isSuccess) status = 'success';
         else if (result.statusId === 5) status = 'timeout';
-        recordRun({ language: meta.language, source: meta.source, status, execTimeMs });
+        recordRun({ sessionId: meta.sessionId, language: meta.language, source: meta.source, status, execTimeMs });
         pending.delete(token);
       }
     }

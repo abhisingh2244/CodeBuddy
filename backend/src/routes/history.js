@@ -6,11 +6,11 @@ const router = express.Router();
 
 router.get('/history', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  res.json(getRecentRuns(limit));
+  res.json(getRecentRuns(req.sessionId, limit));
 });
 
 router.get('/stats', (req, res) => {
-  res.json(getStats());
+  res.json(getStats(req.sessionId));
 });
 
 module.exports = router;

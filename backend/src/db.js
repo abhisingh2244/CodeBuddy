@@ -19,6 +19,7 @@ try {
   db.exec(`
     CREATE TABLE IF NOT EXISTS runs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL,
       language TEXT NOT NULL,
       source_preview TEXT NOT NULL,
       status TEXT NOT NULL,
@@ -28,17 +29,19 @@ try {
 
     CREATE INDEX IF NOT EXISTS idx_runs_created_at ON runs(created_at);
     CREATE INDEX IF NOT EXISTS idx_runs_language ON runs(language);
+    CREATE INDEX IF NOT EXISTS idx_runs_session ON runs(session_id);
   `);
 
   const insertRun = db.prepare(`
-    INSERT INTO runs (language, source_preview, status, exec_time_ms)
-    VALUES (@language, @source_preview, @status, @exec_time_ms)
+    INSERT INTO runs (session_id, language, source_preview, status, exec_time_ms)
+    VALUES (@session_id, @language, @source_preview, @status, @exec_time_ms)
   `);
 
   _impl = {
-    recordRun({ language, source, status, execTimeMs }) {
+    recordRun({ sessionId, language, source, status, execTimeMs }) {
       const preview = (source || '').slice(0, 120);
       insertRun.run({
+        session_id: sessionId,
         language,
         source_preview: preview,
         status,
@@ -46,25 +49,26 @@ try {
       });
     },
 
-    getRecentRuns(limit = 20) {
+    getRecentRuns(sessionId, limit = 20) {
       return db
-        .prepare('SELECT id, language, source_preview, status, exec_time_ms, created_at FROM runs ORDER BY id DESC LIMIT ?')
-        .all(limit);
+        .prepare('SELECT id, language, source_preview, status, exec_time_ms, created_at FROM runs WHERE session_id = ? ORDER BY id DESC LIMIT ?')
+        .all(sessionId, limit);
     },
 
-    getStats() {
+    getStats(sessionId) {
       const totals = db
-        .prepare("SELECT COUNT(*) AS total_runs, SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS successful_runs FROM runs")
-        .get();
+        .prepare("SELECT COUNT(*) AS total_runs, SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS successful_runs FROM runs WHERE session_id = ?")
+        .get(sessionId);
 
       const byLanguage = db
         .prepare(`
           SELECT language, COUNT(*) AS count, AVG(exec_time_ms) AS avg_exec_ms
           FROM runs
+          WHERE session_id = ?
           GROUP BY language
           ORDER BY count DESC
         `)
-        .all();
+        .all(sessionId);
 
       return {
         total_runs: totals.total_runs || 0,
@@ -97,11 +101,12 @@ try {
   }
 
   _impl = {
-    recordRun({ language, source, status, execTimeMs }) {
+    recordRun({ sessionId, language, source, status, execTimeMs }) {
       const id = store.length ? (store[store.length - 1].id + 1) : 1;
       const preview = (source || '').slice(0, 120);
       const entry = {
         id,
+        session_id: sessionId,
         language,
         source_preview: preview,
         status,
@@ -112,16 +117,17 @@ try {
       persist();
     },
 
-    getRecentRuns(limit = 20) {
-      const items = store.slice(-limit).reverse();
+    getRecentRuns(sessionId, limit = 20) {
+      const items = store.filter(r => r.session_id === sessionId).slice(-limit).reverse();
       return items;
     },
 
-    getStats() {
-      const total_runs = store.length;
-      const successful_runs = store.filter(r => r.status === 'success').length;
+    getStats(sessionId) {
+      const sessionRuns = store.filter(r => r.session_id === sessionId);
+      const total_runs = sessionRuns.length;
+      const successful_runs = sessionRuns.filter(r => r.status === 'success').length;
       const by_language_map = {};
-      for (const r of store) {
+      for (const r of sessionRuns) {
         const lang = r.language || 'unknown';
         if (!by_language_map[lang]) by_language_map[lang] = { language: lang, count: 0, total_ms: 0 };
         by_language_map[lang].count += 1;
